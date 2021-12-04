@@ -19,5 +19,8 @@ public class MainApplication {
             System.out.println("WRONG ARGUMENTS");
             System.exit(-2);
         }
+        GornerTableFrame frame = new GornerTableFrame(coefficients);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
     }
 }

@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.*;
 
 public class GornerTableFrame extends JFrame {
     private static final int WIDTH = 1280;
@@ -13,11 +14,19 @@ public class GornerTableFrame extends JFrame {
     private JTextField xEndTF;
     private JTextField stepTF;
 
-    private Box hResultTableBox;
+    private JFileChooser fileChooser = null;
 
     private double[] coefficients;
 
     private GornerTableModel dataTable;
+    private JMenuItem saveToTxtMI;
+    private JMenuItem saveToBinMI;
+    private JMenuItem saveToCsvMI;
+    private JMenuItem searchValueMI;
+    private JMenuItem searchValueFromRangeMI;
+    private JMenuItem showInfoMI;
+
+    private Box hResultTableBox;
 
     private GornerTableCellRenderer renderer = new GornerTableCellRenderer();
 
@@ -29,7 +38,164 @@ public class GornerTableFrame extends JFrame {
         Toolkit tk = Toolkit.getDefaultToolkit();
         setLocation((tk.getScreenSize().width - WIDTH) / 2, (tk.getScreenSize().height - HEIGHT) / 2);
 
+        constructMenu();
+        constructTop();
+        constructMid();
+        constructBot();
+    }
+    private void constructMenu() {
+        JMenuBar menuBar = new JMenuBar();
 
+        JMenu fileMenu = new JMenu("Файл");
+        JMenu tableMenu = new JMenu("Таблица");
+        JMenu infoMenu = new JMenu("Справка");
+
+        menuBar.add(fileMenu);
+        menuBar.add(tableMenu);
+        menuBar.add(infoMenu);
+
+        Action saveToTxtAction = new AbstractAction("Сохранить в .txt") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (fileChooser == null) {
+                    fileChooser = new JFileChooser();
+                    fileChooser.setCurrentDirectory(new File("."));
+                }
+                if (fileChooser.showSaveDialog(GornerTableFrame.this) == JFileChooser.APPROVE_OPTION) {
+                    saveToTxt(new File(fileChooser.getSelectedFile().getName().concat(".txt")));
+                }
+            }
+        };
+        saveToTxtMI = fileMenu.add(saveToTxtAction);
+        saveToTxtMI.setEnabled(false);
+
+        Action saveToBinAction = new AbstractAction("Сохранить в .bin") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (fileChooser == null) {
+                    fileChooser = new JFileChooser();
+                    fileChooser.setCurrentDirectory(new File("."));
+                }
+                if (fileChooser.showSaveDialog(GornerTableFrame.this) == JFileChooser.APPROVE_OPTION) {
+                    saveToBin(new File(fileChooser.getSelectedFile().getName().concat(".bin")));
+                }
+            }
+        };
+        saveToBinMI = fileMenu.add(saveToBinAction);
+        saveToBinMI.setEnabled(false);
+
+        Action saveToCsvAction = new AbstractAction("Сохранить в .csv") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (fileChooser == null) {
+                    fileChooser = new JFileChooser();
+                    fileChooser.setCurrentDirectory(new File("."));
+                }
+                if (fileChooser.showSaveDialog(GornerTableFrame.this) == JFileChooser.APPROVE_OPTION) {
+                    saveToCsv(new File(fileChooser.getSelectedFile().getName().concat(".csv")));
+                }
+            }
+        };
+        saveToCsvMI = fileMenu.add(saveToCsvAction);
+        saveToCsvMI.setEnabled(false);
+
+        Action searchValueAction = new AbstractAction("Найти значение") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String value = JOptionPane.showInputDialog(GornerTableFrame.this, "Введите значение", "Поиск", JOptionPane.QUESTION_MESSAGE);
+                try {
+                    Double test = Double.parseDouble(value);
+                    double xBeg1 = Double.parseDouble(xBegTF.getText());
+                    double xEnd1 = Double.parseDouble(xEndTF.getText());
+                    if(test <= xEnd1 && test >= xBeg1){
+
+
+                    } else {
+                        renderer.setRequiredValue(value);
+                        renderer.setCoolSearch(false);
+                        repaint();
+                    }
+                } catch (NumberFormatException exception) {
+                    JOptionPane.showMessageDialog(GornerTableFrame.this, "Неверные данные", "Ошибка", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+            }
+        };
+        searchValueMI = tableMenu.add(searchValueAction);
+        searchValueMI.setEnabled(false);
+
+        Action searchValueFromRangeAction = new AbstractAction("Найти близкие к простым") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                renderer.setCoolSearch(true);
+                renderer.setRequiredValue(null);
+                repaint();
+            }
+        };
+
+        searchValueFromRangeMI = tableMenu.add(searchValueFromRangeAction);
+        searchValueFromRangeMI.setEnabled(false);
+
+        Action showInfoAction = new AbstractAction("О программе") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                ImageIcon icon = new ImageIcon(new ImageIcon(GornerTableFrame.class.getResource("image1.jpg")).getImage().getScaledInstance(240, 200, Image.SCALE_DEFAULT));
+                JOptionPane.showMessageDialog(GornerTableFrame.this, "Ушаков Павел \n10 группа \nДля связи vk:@ushakovp" , "Справка", JOptionPane.PLAIN_MESSAGE, icon);
+            }
+        };
+        showInfoMI = infoMenu.add(showInfoAction);
+
+        setJMenuBar(menuBar);
+    }
+
+    void saveToTxt(File file) {
+        try {
+            PrintStream out = new PrintStream(file);
+            out.println("Результаты табулирования по схеме Горнера");
+            out.print("Многочлен: ");
+            for (int i = 0; i < coefficients.length; i++) {
+                out.print(coefficients[i] + "*x^" + i);
+                if (i != coefficients.length - 1) {
+                    out.print(" + ");
+                }
+            }
+            out.println("");
+            out.println("Интервал от " + renderer.getFormatter().format(dataTable.getXBeg()) + " до " + renderer.getFormatter().format(dataTable.getXEnd()) + " с шагом " + renderer.getFormatter().format(dataTable.getStep()));
+            out.println("\n\n");
+            for (int i = 0; i < dataTable.getRowCount(); i++) {
+                out.println("F(" + renderer.getFormatter().format(dataTable.getValueAt(i, 0)) + ") = " + renderer.getFormatter().format(dataTable.getValueAt(i, 1)) + " или " + renderer.getFormatter().format(dataTable.getValueAt(i, 2)) + ", с разницей " + renderer.getFormatter().format(dataTable.getValueAt(i, 3)));
+            }
+            out.close();
+        } catch (FileNotFoundException ignore) {
+
+        }
+    }
+    void saveToBin(File file) {
+        try {
+            DataOutputStream out = new DataOutputStream(new FileOutputStream(file));
+            for (int i = 0; i < dataTable.getRowCount(); i++) {
+                out.writeDouble((Double) dataTable.getValueAt(i, 0));
+                out.writeDouble((Double) dataTable.getValueAt(i, 1));
+            }
+            out.close();
+        } catch (Exception ignore) {
+
+        }
+    }
+    void saveToCsv(File file) {
+        try {
+            PrintStream out = new PrintStream(file);
+            for (int i = 0; i < dataTable.getRowCount(); i++) {
+                out.print(dataTable.getValueAt(i, 0) + ",");
+                out.print(dataTable.getValueAt(i, 1) + ",");
+                out.print(dataTable.getValueAt(i, 2) + ",");
+                out.println(dataTable.getValueAt(i, 3));
+            }
+            out.close();
+        } catch (FileNotFoundException ignore) {
+
+        }
     }
 
     private void constructTop() {
@@ -137,4 +303,6 @@ public class GornerTableFrame extends JFrame {
 
         add(hBoxButtons, BorderLayout.NORTH);
     }
+
+
 }
